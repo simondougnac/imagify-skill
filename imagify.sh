@@ -330,7 +330,8 @@ cmd_webp() {
 
     # PNG avec transparence → lossless
     local ext="${img##*.}"
-    if [[ "${ext,,}" == "png" ]]; then
+    local ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+    if [[ "$ext_lower" == "png" ]]; then
       cwebp -lossless -mt -metadata none "$img" -o "$output" 2>/dev/null
     else
       cwebp -q "$quality" -mt -metadata none "$img" -o "$output" 2>/dev/null
@@ -402,7 +403,7 @@ cmd_avif() {
 
     printf "[%d/%d] %s ... " "$num" "$count" "$(basename "$img")"
 
-    ffmpeg -i "$img" -c:v libaom-av1 -crf "$crf" -b:v 0 -an -y "$output" 2>/dev/null
+    ffmpeg -i "$img" -c:v libsvtav1 -crf "$crf" -preset 6 -an -y "$output" 2>/dev/null
 
     if [ -f "$output" ]; then
       local new_size=$(filesize "$output")
