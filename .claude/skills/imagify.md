@@ -311,15 +311,69 @@ Si le projet utilise des composants (Astro, React, etc.) :
 </picture>
 ```
 
+## Commandes du script imagify.sh v2
+
+Le script `/Users/simondougnac/Documents/GitHub/###SKILLS/imagify/imagify.sh` gere tout le pipeline.
+
+```bash
+imagify.sh audit     <path>              # Analyser sans modifier
+imagify.sh optimize  <path> [level]      # Compresser via Imagify
+imagify.sh webp      <path> [quality]    # Convertir en WebP
+imagify.sh avif      <path> [crf]        # Convertir en AVIF
+imagify.sh full      <path> [level]      # Pipeline complet
+imagify.sh resize    <path> [max_width]  # Redimensionner (defaut 1920px)
+imagify.sh picture   <path>              # Generer balises <picture>
+imagify.sh htaccess  <path>              # Generer regles Apache
+imagify.sh clean     <path>              # Supprimer WebP/AVIF generes
+imagify.sh restore   <path>              # Restaurer depuis backup
+imagify.sh quota                         # Verifier quota API
+```
+
+**Options globales :**
+```
+--dry-run           Simuler sans modifier aucun fichier
+--no-backup         Ne pas creer de backup des originaux
+--max-width=N       Redimensionner avant optimisation (ex: --max-width=1920)
+--report=FILE       Exporter le rapport en JSON
+--exclude=PATTERN   Exclure des fichiers (grep pattern, ex: --exclude=favicon)
+```
+
+## Detection automatique de transparence PNG
+
+Le script v2 detecte automatiquement les PNG avec canal alpha via 3 methodes :
+1. `sips -g hasAlpha` (macOS)
+2. `identify` (ImageMagick)
+3. Lecture du header PNG (color type 4 ou 6)
+
+Quand un PNG transparent est detecte :
+- **Imagify API** : SKIP automatique (detruit le canal alpha → fond vert/noir)
+- **WebP** : conversion en mode lossless (`cwebp -lossless`)
+- **AVIF** : SKIP automatique (libsvtav1 ne gere pas bien la transparence)
+
+## Backup et restauration
+
+Par defaut, le script cree un dossier `.imagify-backup-YYYYMMDD_HHMMSS/` avant toute modification. Pour restaurer :
+
+```bash
+imagify.sh restore <path>   # restaure le backup le plus recent
+```
+
+Pour desactiver : `--no-backup`
+
+## Gestion intelligente des doublons
+
+- Si un `.webp` ou `.avif` existe ET est plus recent que l'original → skip
+- Si le fichier converti est plus gros que l'original → supprime et ignore
+- Les images deja optimisees par Imagify (HTTP 422) sont ignorees silencieusement
+
 ## Regles importantes
 
-- **TOUJOURS auditer avant d'optimiser** — presenter le rapport a l'utilisateur
-- **TOUJOURS demander confirmation** avant de modifier des fichiers
-- **TOUJOURS garder les originaux** sauf demande explicite de remplacement
-- **Respecter le quota** : calculer la taille totale avant d'envoyer a Imagify
-- **Limiter le debit** : max 2 requetes/seconde vers l'API Imagify
-- **Verifier les prerequis** (cwebp, ffmpeg) avant de lancer les conversions
-- La conversion AVIF est LENTE (~5-10s par image avec ffmpeg) — prevenir l'utilisateur
-- Pour les PNG avec transparence, utiliser `cwebp -lossless` (pas `-q`)
-- **NE JAMAIS envoyer de PNG avec transparence a Imagify API** — la compression detruit le canal alpha (fond transparent → fond vert/noir). Pour les PNG transparents : utiliser uniquement la conversion WebP lossless locale et AVIF avec `-pix_fmt yuva420p`
-- Logos, icones et images avec fond transparent = **exclure d'Imagify**, traiter localement uniquement
+- **TOUJOURS lancer `audit` avant `optimize` ou `full`** — presenter le rapport a l'utilisateur
+- **TOUJOURS demander confirmation** avant de modifier des fichiers (le script le fait automatiquement)
+- **Respecter le quota** : l'audit affiche le quota Imagify necessaire
+- **Limiter le debit** : le script attend 0.5s entre chaque requete API
+- **NE JAMAIS envoyer de PNG avec transparence a Imagify API** — le script le detecte et skip automatiquement
+- **Verifier les prerequis** : le script verifie `cwebp`, `ffmpeg`, `jq` au demarrage
+- Utiliser `--dry-run` pour tester sans risque
+- Utiliser `--max-width=1920` pour les images hero/banniere qui n'ont pas besoin d'etre plus larges
+- Utiliser `--exclude=favicon` pour exclure les petites icones du pipeline
