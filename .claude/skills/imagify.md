@@ -321,3 +321,5 @@ Si le projet utilise des composants (Astro, React, etc.) :
 - **Verifier les prerequis** (cwebp, ffmpeg) avant de lancer les conversions
 - La conversion AVIF est LENTE (~5-10s par image avec ffmpeg) — prevenir l'utilisateur
 - Pour les PNG avec transparence, utiliser `cwebp -lossless` (pas `-q`)
+- **NE JAMAIS envoyer de PNG avec transparence a Imagify API** — la compression detruit le canal alpha (fond transparent → fond vert/noir). Pour les PNG transparents : utiliser uniquement la conversion WebP lossless locale et AVIF avec `-pix_fmt yuva420p`
+- Logos, icones et images avec fond transparent = **exclure d'Imagify**, traiter localement uniquement
